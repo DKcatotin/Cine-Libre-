@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import '../data/mock_movies.dart';
-import 'video_player_page.dart';
-import 'series_details_page.dart'; //
+import '../services/tmdb_service.dart';
+import '../models/movie.dart';
+import '../models/series.dart';
 import '../widgets/app_logo.dart';
-import '../models/episode.dart';
+import 'series_details_page.dart';
+import 'movie_details_page.dart';
+import '../data/mock_movies.dart';
+import '../data/mock_series.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,15 +15,70 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> {
   String selectedGenre = 'Todos';
   String searchQuery = '';
+  bool isLoading = true;
+  List<Movie> movies = [];
+  List<Series> series = [];
+
   final List<String> genres = [
-    'Todos',
-    'Acción', 'Drama', 'Comedia',
+    'Todos', 'Acción', 'Drama', 'Comedia',
     'Documental', 'Terror', 'Suspenso',
     'Ciencia Ficción', 'Romance', 'Animación', 'Aventura'
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchContent();
+  }
+void _logout() async {
+  try {
+    // ✅ Cierra sesión en Firebase
+    Navigator.pushReplacementNamed(context, '/login'); // ✅ Redirige a la pantalla de inicio de sesión
+  } catch (e) {
+    debugPrint('Error al cerrar sesión: $e');
+  }
+}
+final TextEditingController _searchController = TextEditingController();
+@override
+void dispose() {
+  _searchController.dispose();
+  super.dispose();
+}
+
+void updateSearchQuery(String value) {
+  setState(() {
+    searchQuery = value;
+
+    // ✅ Si la búsqueda no devuelve resultados, evita el error
+    if (movies.isEmpty && series.isEmpty) {
+      debugPrint('⚠️ Advertencia: No hay contenido para mostrar');
+      return;
+    }
+  });
+}
+
+
+  void fetchContent() async {
+    try {
+      final tmdbService = TMDbService();
+      final fetchedMovies = await tmdbService.fetchPopularMovies();
+      final fetchedSeries = await tmdbService.fetchPopularSeries();
+
+      setState(() {
+        movies = [...mockMovies, ...fetchedMovies];
+        series = [...mockSeries, ...fetchedSeries];
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error al cargar contenido: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,25 +105,82 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ],
           ),
         ),
-        drawer: Drawer(
+      drawer: Drawer(
+  child: SafeArea( // ✅ Evita que el texto choque con el borde superior
+    child: Column(
+      children: [
+        const SizedBox(height: 16), // ✅ Espaciado extra antes del título
+        
+        // ✅ Encabezado del Drawer mejorado
+        Container(
+          padding: const EdgeInsets.all(16),
+          width: double.infinity,
+          color: Colors.redAccent,
+          child: const Text(
+            '🎬 Filtrar contenido',
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+        ),
+
+        Expanded(
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              const DrawerHeader(
-                decoration: BoxDecoration(color: Colors.redAccent),
-                child: Text('Filtrar contenido', style: TextStyle(color: Colors.white, fontSize: 20)),
+              const SizedBox(height: 16), // ✅ Separación entre elementos
+ListTile(
+  leading: const Icon(Icons.home, color: Colors.green),
+  title: const Text(
+    'Mostrar todo',
+    style: TextStyle(fontWeight: FontWeight.bold),
+  ),
+  onTap: () {
+    setState(() {
+      selectedGenre = 'Todos';
+      searchQuery = '';
+      _searchController.clear();
+    });
+    Navigator.pop(context);
+  },
+),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: TextField(
+  controller: _searchController,
+  decoration: InputDecoration(
+    labelText: '🔍 Buscar título',
+    border: OutlineInputBorder(),
+    prefixIcon: const Icon(Icons.search),
+    suffixIcon: searchQuery.isNotEmpty
+        ? IconButton(
+            icon: const Icon(Icons.clear),
+            onPressed: () {
+              setState(() {
+                _searchController.clear();
+                searchQuery = '';
+              });
+            },
+          )
+        : null,
+  ),
+  onSubmitted: (value) {
+    setState(() {
+      searchQuery = value;
+    });
+    Navigator.pop(context); // Cierra el Drawer
+  },
+),
               ),
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Género',
+                  decoration: InputDecoration(
+                    labelText: '🎭 Género',
                     border: OutlineInputBorder(),
                   ),
                   value: selectedGenre,
-                  items: genres
-                      .map((genre) => DropdownMenuItem<String>(value: genre, child: Text(genre)))
-                      .toList(),
+                  items: genres.map((genre) => DropdownMenuItem<String>(value: genre, child: Text(genre))).toList(),
                   onChanged: (value) {
                     setState(() {
                       selectedGenre = value!;
@@ -74,176 +189,192 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Buscar título',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      searchQuery = value;
-                    });
-                    // Verificación de mounted para evitar errores de contexto en futuras llamadas asíncronas
-                    if (mounted) {
-                      Navigator.pop(context); // Cierra el drawer después de la búsqueda
-                    }
-                  },
+
+              const SizedBox(height: 190), // ✅ Separación antes de cerrar sesión
+
+              ListTile(
+                leading: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+                title: const Text(
+                  'Cerrar sesión',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
+                onTap: () {
+                  _logout(); // ✅ Llama a la función de cierre de sesión
+                },
               ),
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            buildContentGrid(isSeries: false),
-            buildContentGrid(isSeries: true),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-  backgroundColor: Colors.redAccent,
-  onPressed: () => _showHelpDialog(context),
-  child: const Icon(Icons.help_outline),
+      ],
+    ),
+  ),
 ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : TabBarView(
+                children: [
+                  buildContentGrid(isSeries: false),
+                  buildContentGrid(isSeries: true),
+                ],
+              ),
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: Colors.redAccent,
+          onPressed: () => _showHelpDialog(context),
+          child: const Icon(Icons.help_outline),
+        ),
+      ),
+    );
+  }
+Widget buildContentGrid({required bool isSeries}) {
+  List<Movie> filteredMovies = movies.where((movie) {
+    final matchesSearch = movie.title.toLowerCase().contains(searchQuery.toLowerCase());
+    final itemGenres = movie.genre.split(',').map((g) => g.trim()).toList();
+    final matchesGenre = selectedGenre == 'Todos' || itemGenres.contains(selectedGenre);
+    return matchesSearch && matchesGenre;
+  }).toList();
 
+  List<Series> filteredSeries = series.where((serie) {
+    final matchesSearch = serie.name.toLowerCase().contains(searchQuery.toLowerCase());
+    final itemGenres = serie.genres?.map((g) => g['name'].toString()).toList() ?? [];
+    final matchesGenre = selectedGenre == 'Todos' || itemGenres.contains(selectedGenre);
+    return matchesSearch && matchesGenre;
+  }).toList();
+
+ final featuredMovies = filteredMovies.where((m) => m.isFeatured).toList();
+final contentList = isSeries ? filteredSeries : filteredMovies;
+
+      
+
+  // ✅ Mostrar mensaje solo si no hay carrusel NI cuadrícula
+  final noResults = contentList.isEmpty && (isSeries || featuredMovies.isEmpty);
+
+  if (noResults && searchQuery.isNotEmpty) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(20),
+        child: Text(
+          '⚠️ No se encontraron resultados. Intenta con otro título.',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
 
-  Widget buildContentGrid({required bool isSeries}) {
-  final filtered = mockMovies.where((movie) {
-    final movieGenres = movie.genre.split(',').map((g) => g.trim()).toList();
-    final matchesGenre = selectedGenre == 'Todos' || movieGenres.contains(selectedGenre);
-    final matchesSearch = movie.title.toLowerCase().contains(searchQuery.toLowerCase());
-    return movie.isSeries == isSeries && matchesGenre && matchesSearch;
-  }).toList();
-
-  final featured = filtered.where((m) => m.isFeatured).toList();
-
   return SingleChildScrollView(
-    child: Padding(
-      padding: const EdgeInsets.all(8.0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!isSeries &&
+    featuredMovies.isNotEmpty &&
+    searchQuery.isEmpty &&
+    selectedGenre == 'Todos')
+  _buildCarousel(featuredMovies),
+
+        buildMovieGrid(contentList),
+      ],
+    ),
+  );
+}
+
+// ✅ Carrusel de películas destacadas
+Widget _buildCarousel(List<Movie> movies) {
+  final featuredMovies = movies.where((m) => m.isFeatured).toList();
+
+  if (featuredMovies.isEmpty) return const SizedBox(); // No muestra nada si no hay destacadas
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
+        child: Text(
+          '🎬 Películas destacadas',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: Colors.white70),
+        ),
+      ),
+      SizedBox(
+        height: 255,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: featuredMovies.length,
+          itemBuilder: (context, index) {
+            final movie = featuredMovies[index];
+            return SizedBox(
+              width: 185,
+              child: buildContentCard(movie, false),
+            );
+          },
+          
+        ),
+      ),
+      const SizedBox(height: 16),
+    ],
+  );
+}
+
+// ✅ Cuadrícula de contenido
+Widget buildMovieGrid(List<dynamic> contentList) {
+  return GridView.builder(
+    padding: const EdgeInsets.all(8),
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: contentList.length,
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 2,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 0.7,
+    ),
+    itemBuilder: (context, index) {
+      final item = contentList[index];
+      return buildContentCard(item, item is Series);
+    },
+  );
+}
+
+// ✅ Tarjeta de contenido
+Widget buildContentCard(dynamic item, bool isSeries) {
+  return GestureDetector(
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => isSeries
+              ? SeriesDetailPage(seriesId: item.id)
+              : MovieDetailPage(movie: item),
+        ),
+      );
+    },
+    child: Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (selectedGenre == 'Todos' && featured.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4.0, vertical: 8),
-                  child: Text(
-                    'Películas destacadas',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white70,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  height: 255,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: featured.length,
-                    itemBuilder: (context, index) {
-                      final movie = featured[index];
-                      return SizedBox(
-                        width: 185,
-                        child: buildMovieCard(movie),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Image.network(
+              item is Movie ? item.fullPosterUrl : (item as Series).fullPosterUrl,
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 100),
             ),
-          GridView.builder(
-            physics: const NeverScrollableScrollPhysics(), // ← ¡clave!
-            shrinkWrap: true, // ← ¡clave!
-            itemCount: filtered.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.7,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              item is Movie ? item.title : (item as Series).name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            itemBuilder: (context, index) {
-              final movie = filtered[index];
-              return buildMovieCard(movie);
-            },
           ),
         ],
       ),
     ),
   );
 }
-
-  Widget buildMovieCard(movie) {
-    return GestureDetector(
-      onTap: () {
-        if (movie.isSeries) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SeriesDetailPage(series: movie),
-            ),
-          );
-        } else if (movie.youtubeId != null && movie.youtubeId!.isNotEmpty) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => VideoPlayerPage(
-                movie: movie,
-                episode: Episode(
-                  title: movie.title,
-                  videoUrl: 'https://www.youtube.com/watch?v=${movie.youtubeId}',
-                  duration: 'N/A',
-                ),
-              ),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No hay video disponible')),
-          );
-        }
-      },
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 4,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
-                movie.imageUrl,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.broken_image, size: 100),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                movie.title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-void _showHelpDialog(BuildContext context) {
+  void _showHelpDialog(BuildContext context) {
   showDialog(
     context: context,
     builder: (context) {
@@ -309,4 +440,4 @@ void _showHelpDialog(BuildContext context) {
     },
   );
 }
-
+}

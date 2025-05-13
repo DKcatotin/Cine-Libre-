@@ -1,27 +1,54 @@
-import 'package:cine_libre/models/episode.dart';
-
 class Movie {
-  final String id;
+  final int id;
   final String title;
   final String description;
   final String imageUrl;
   final String genre;
+  final String? duration;
+  final double? rating;
   final bool isFeatured;
-  final bool isSeries;
-
-  // Solo para películas
-  final String? youtubeId;
-  final List<Episode> episodes;
+  final String youtubeId;
 
   Movie({
-  required this.id,
-  required this.title,
-  required this.description,
-  required this.imageUrl,
-  required this.genre,
-  this.isFeatured = false,
-  this.isSeries = false,
-  this.youtubeId,
-  this.episodes = const [], // <- valor por defecto
-});
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.imageUrl,
+    required this.genre,
+    this.duration,
+    this.rating,
+    this.isFeatured = false,
+    this.youtubeId = '',
+  });
+
+  /// ✅ Se asegura que `fullPosterUrl` sea siempre una imagen válida
+  String get fullPosterUrl => imageUrl.isNotEmpty
+      ? imageUrl
+      : "https://via.placeholder.com/500";
+
+  /// Constructor para convertir los datos desde la API de TMDb
+  factory Movie.fromJsonTMDb(Map<String, dynamic> json) {
+    // Obtener tráiler de YouTube
+    final videos = json['videos']?['results'] as List<dynamic>? ?? [];
+    final trailer = videos.firstWhere(
+      (video) => video['type'] == 'Trailer' && video['site'] == 'YouTube',
+      orElse: () => null,
+    );
+
+    return Movie(
+      id: json['id'],
+      title: json['title'] ?? 'Sin título',
+      description: json['overview'] ?? 'Sin descripción',
+      imageUrl: json['poster_path'] != null
+          ? 'https://image.tmdb.org/t/p/w500${json['poster_path']}'
+          : '',
+      genre: (json['genres'] as List?)
+          ?.map((g) => g['name'].toString())
+          .join(', ') ?? 'Desconocido',
+      duration: json['runtime'] != null ? '${json['runtime']} min' : 'Desconocida',
+      rating: (json['vote_average'] as num?)?.toDouble() ?? 0.0,
+      isFeatured: (json['vote_average'] ?? 0) >= 7.5,
+      youtubeId: trailer != null ? trailer['key'] : '', // ✅ Ahora `youtubeId` se obtiene de TMDB
+    );
+  }
 }

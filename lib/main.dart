@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'pages/login_page.dart'; // Asegúrate de importar esto
+import 'pages/home_page.dart';
+import 'pages/login_page.dart'; // ✅ Asegúrate de importar correctamente
 
 void main() {
   runApp(const CineLibreApp());
@@ -14,7 +15,11 @@ class CineLibreApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'CineLibre',
       theme: ThemeData.dark(),
-      home: const LoginPage(), // Ahora arranca en el login
+      initialRoute: '/login', // ✅ Ahora inicia en la pantalla de login
+      routes: {
+        '/login': (context) => const LoginPage(), // ✅ Define la ruta de login
+        '/home': (context) => const HomePage(), // ✅ Define la ruta del Home
+      },
     );
   }
 }

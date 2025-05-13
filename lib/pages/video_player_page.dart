@@ -1,92 +1,81 @@
-import 'package:cine_libre/models/episode.dart';
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:cine_libre/models/movie.dart';
 
 class VideoPlayerPage extends StatefulWidget {
-  final Movie movie;
-  final Episode episode;
+  final String videoUrl;
 
-  const VideoPlayerPage({
-    super.key,
-    required this.movie,
-    required this.episode,
-  });
+  const VideoPlayerPage({super.key, required this.videoUrl});
 
   @override
   State<VideoPlayerPage> createState() => _VideoPlayerPageState();
 }
 
 class _VideoPlayerPageState extends State<VideoPlayerPage> {
-  late YoutubePlayerController _controller;
-
-  String extractYoutubeId(String urlOrId) {
-    if (urlOrId.contains('youtube.com') || urlOrId.contains('youtu.be')) {
-      Uri? uri = Uri.tryParse(urlOrId);
-      if (uri == null) return '';
-      if (uri.host.contains('youtu.be')) {
-        return uri.pathSegments.isNotEmpty ? uri.pathSegments[0] : '';
-      }
-      return uri.queryParameters['v'] ?? '';
-    }
-    return urlOrId;
-  }
+  late YoutubePlayerController _youtubeController;
+  late WebViewController _webViewController;
+  bool isYouTube = false;
+  late String formattedUrl;
 
   @override
   void initState() {
     super.initState();
-    final videoId = widget.movie.isSeries
-        ? extractYoutubeId(widget.episode.videoUrl)
-        : widget.movie.youtubeId!;
-    _controller = YoutubePlayerController(
-      initialVideoId: videoId,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
-        mute: false,
-      ),
-    );
+    isYouTube = _isYouTubeUrl(widget.videoUrl);
+
+    // Si es YouTube, transforma el ID en una URL válida
+    formattedUrl = isYouTube ? _formatYoutubeUrl(widget.videoUrl) : widget.videoUrl;
+
+    if (isYouTube) {
+      final videoId = _extractYoutubeId(formattedUrl);
+      _youtubeController = YoutubePlayerController(
+        initialVideoId: videoId,
+        flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
+      );
+    } else {
+      _webViewController = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..loadRequest(Uri.parse(formattedUrl));
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (isYouTube) {
+      _youtubeController.dispose();
+    }
     super.dispose();
+  }
+
+  // Detecta si la URL es de YouTube
+  bool _isYouTubeUrl(String url) {
+    return url.contains("youtube.com") || url.contains("youtu.be") || url.length == 11;
+  }
+
+  // Extrae el ID del video de YouTube
+  String _extractYoutubeId(String url) {
+    Uri? uri = Uri.tryParse(url);
+    if (uri == null) return url; // Si ya es un ID, lo devuelve como está
+    if (uri.host.contains("youtu.be")) {
+      return uri.pathSegments.isNotEmpty ? uri.pathSegments[0] : '';
+    }
+    return uri.queryParameters["v"] ?? '';
+  }
+
+  // Convierte un ID en una URL válida de YouTube
+  String _formatYoutubeUrl(String videoIdOrUrl) {
+    if (videoIdOrUrl.startsWith("http")) {
+      return videoIdOrUrl;
+    }
+    return "https://www.youtube.com/watch?v=$videoIdOrUrl";
   }
 
   @override
   Widget build(BuildContext context) {
-    return YoutubePlayerBuilder(
-      player: YoutubePlayer(controller: _controller),
-      builder: (context, player) {
-        return Scaffold(
-          appBar: AppBar(title: Text(widget.movie.title)),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              player,
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.episode.title,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    if (!widget.movie.isSeries) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.movie.description,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ]
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    return Scaffold(
+      appBar: AppBar(title: const Text('Reproduciendo video')),
+      body: isYouTube
+          ? YoutubePlayer(controller: _youtubeController)
+          : WebViewWidget(controller: _webViewController),
     );
   }
 }
