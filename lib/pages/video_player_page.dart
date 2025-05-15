@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 class VideoPlayerPage extends StatefulWidget {
   final String videoUrl;
@@ -28,9 +28,14 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     if (isYouTube) {
       final videoId = _extractYoutubeId(formattedUrl);
       _youtubeController = YoutubePlayerController(
-        initialVideoId: videoId,
-        flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+          // Cambiado de autoPlay a autoPlay (con P mayúscula)
+          mute: false,
+        ),
       );
+      _youtubeController.loadVideoById(videoId: videoId);
     } else {
       _webViewController = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -41,7 +46,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   @override
   void dispose() {
     if (isYouTube) {
-      _youtubeController.dispose();
+      _youtubeController.close(); // Usar close() en lugar de dispose()
     }
     super.dispose();
   }
@@ -53,11 +58,18 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
 
   // Extrae el ID del video de YouTube
   String _extractYoutubeId(String url) {
+    // Si la URL tiene 11 caracteres, asumimos que ya es un ID
+    if (url.length == 11 && !url.contains("/") && !url.contains(".")) {
+      return url;
+    }
+    
     Uri? uri = Uri.tryParse(url);
-    if (uri == null) return url; // Si ya es un ID, lo devuelve como está
+    if (uri == null) return url; // Si no es una URI válida, lo devuelve como está
+    
     if (uri.host.contains("youtu.be")) {
       return uri.pathSegments.isNotEmpty ? uri.pathSegments[0] : '';
     }
+    
     return uri.queryParameters["v"] ?? '';
   }
 
@@ -74,7 +86,18 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Reproduciendo video')),
       body: isYouTube
-          ? YoutubePlayer(controller: _youtubeController)
+          ? YoutubePlayerScaffold(
+              controller: _youtubeController,
+              aspectRatio: 16 / 9,
+              builder: (context, player) {
+                return Column(
+                  children: [
+                    // El reproductor ocupará todo el espacio disponible
+                    Expanded(child: player),
+                  ],
+                );
+              },
+            )
           : WebViewWidget(controller: _webViewController),
     );
   }
