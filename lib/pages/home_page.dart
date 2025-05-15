@@ -9,6 +9,8 @@ import 'series_details_page.dart';
 import 'movie_details_page.dart';
 import '../data/mock_movies.dart';
 import '../data/mock_series.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,17 +31,32 @@ class _HomePageState extends State<HomePage> {
 
 
   @override
-  void initState() {
-    super.initState();
+void initState() {
+  super.initState();
+
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    // 🔒 Si no hay usuario logueado, redirige al login
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.pushReplacementNamed(context, '/login');
+    });
+  } else {
     fetchContent();
   }
+}
 
-void _logout() async {
+
+Future<void> _logout(BuildContext context) async {
   try {
-    // ✅ Cierra sesión en Firebase
-    Navigator.pushReplacementNamed(context, '/login'); // ✅ Redirige a la pantalla de inicio de sesión
+    await FirebaseAuth.instance.signOut(); // 🔒 Cierra sesión en Firebase
+    if (!context.mounted) return; // ✅ Verifica si el widget sigue montado
+    Navigator.pushReplacementNamed(context, '/login'); // 🔁 Redirige a login
   } catch (e) {
     debugPrint('Error al cerrar sesión: $e');
+    if (!context.mounted) return; // ✅ Otra verificación por seguridad
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error al cerrar sesión'))
+    );
   }
 }
 
@@ -200,7 +217,7 @@ ListTile(
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 onTap: () {
-                  _logout(); // ✅ Llama a la función de cierre de sesión
+                  _logout(context); // ✅ Llama a la función de cierre de sesión
                 },
               ),
             ],

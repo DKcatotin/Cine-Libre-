@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "822634328388",
+    "project_id": "cinelibre-f1b3a",
+    "storage_bucket": "cinelibre-f1b3a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:822634328388:android:02174bf28a516e2d8a6711",
+        "android_client_info": {
+          "package_name": "com.example.cine_libre"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnQSZhtclSyNiZquqqfTxcAclHjqsNxkk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:822634328388:android:5d23db3c833485608a6711",
+        "android_client_info": {
+          "package_name": "com.tuempresa.cinelibre"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnQSZhtclSyNiZquqqfTxcAclHjqsNxkk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

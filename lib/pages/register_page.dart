@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -17,9 +20,27 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passCtrl = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
 
-  void _handleRegister() {
-    if (_formKey.currentState!.validate()) {
-      // Aquí podrías enviar los datos al backend
+ void _handleRegister() async {
+  if (_formKey.currentState!.validate()) {
+    try {
+      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailCtrl.text.trim(),
+        password: _passCtrl.text.trim(),
+      );
+
+      final user = credential.user;
+      if (user != null) {
+        // Guardar datos adicionales en Firestore
+        await FirebaseFirestore.instance.collection('usuarios').doc(user.uid).set({
+          'nombre': _nameCtrl.text.trim(),
+          'email': _emailCtrl.text.trim(),
+          'usuario': _userCtrl.text.trim(),
+          'creado': FieldValue.serverTimestamp(),
+          // Puedes agregar más campos si lo deseas
+        });
+      }
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('¡Usuario registrado con éxito!')),
@@ -29,8 +50,22 @@ class _RegisterPageState extends State<RegisterPage> {
         context,
         MaterialPageRoute(builder: (_) => const LoginPage()),
       );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String message = 'Error al registrar';
+      if (e.code == 'email-already-in-use') {
+        message = 'El correo ya está en uso';
+      } else if (e.code == 'weak-password') {
+        message = 'La contraseña es muy débil';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     }
   }
+}
 
   @override
   void dispose() {

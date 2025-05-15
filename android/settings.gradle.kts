@@ -22,4 +22,14 @@ plugins {
     id("org.jetbrains.kotlin.android") version "1.8.22" apply false
 }
 
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+        // 👇 Agrega este repo específico de Flutter
+        maven { url = uri("https://storage.googleapis.com/download.flutter.io") }
+    }
+}
+
 include(":app")

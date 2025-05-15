@@ -1,8 +1,11 @@
 import 'package:cine_libre/pages/register_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+//import '../services/auth_service.dart';
 import 'home_page.dart';
 import '../widgets/app_logo.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,25 +17,72 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-  final _authService = AuthService();
+  //final _authService = AuthService();
 
-  void _handleLogin() {
-    final user = _userCtrl.text;
-    final pass = _passCtrl.text;
+ void _handleLogin() async {
+  final email = _userCtrl.text.trim();
+  final password = _passCtrl.text.trim();
+if (!RegExp(r'\S+@\S+\.\S+').hasMatch(email)) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Formato de correo inválido')),
+  );
+  return;
+}
 
-    final isValid = _authService.login(user, pass);
+  try {
+    final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
 
-    if (isValid) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Credenciales inválidas')),
-      );
+    final user = credential.user;
+    if (user != null) {
+      // Leer datos del usuario desde Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(user.uid)
+          .get();
+
+      final userData = userDoc.data();
+      if (userData != null) {
+        debugPrint("Nombre: ${userData['nombre']}");
+        debugPrint("Usuario: ${userData['usuario']}");
+        // Puedes pasar estos datos al HomePage si quieres
+      }
     }
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HomePage()),
+    );
+  } on FirebaseAuthException catch (e) {
+  String message = 'Error al iniciar sesión';
+  switch (e.code) {
+    case 'user-not-found':
+      message = 'Usuario no encontrado';
+      break;
+    case 'wrong-password':
+      message = 'Contraseña incorrecta';
+      break;
+    case 'invalid-email':
+      message = 'Formato de correo no válido';
+      break;
+    case 'too-many-requests':
+      message = 'Demasiados intentos, intenta más tarde';
+      break;
+    default:
+      message = 'Error desconocido';
   }
+
+  if (!mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+}
+
 
   @override
   Widget build(BuildContext context) {
