@@ -235,7 +235,7 @@ Widget buildContentGrid({required bool isSeries}) {
 
   List<Series> filteredSeries = series.where((serie) {
     final matchesSearch = serie.name.toLowerCase().contains(searchQuery.toLowerCase());
-    final itemGenres = serie.genres?.map((g) => g['name'].toString()).toList() ?? [];
+    final itemGenres = serie.genres;
     final matchesGenre = selectedGenre == 'Todos' || itemGenres.contains(selectedGenre);
     return matchesSearch && matchesGenre;
   }).toList();

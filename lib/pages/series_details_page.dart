@@ -41,35 +41,35 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
   }
 
   Future<void> loadSeries() async {
-  try {
-    final data = await _seriesService.fetchSeriesDetails(widget.seriesId);
-    debugPrint('✅ Datos obtenidos de la serie: $data');
+    try {
+      final data = await _seriesService.fetchSeriesDetails(widget.seriesId);
+      debugPrint('✅ Datos obtenidos de la serie: $data');
 
-    if (data.isEmpty) {
-      throw Exception('La API devolvió datos vacíos.');
+      if (data.isEmpty) {
+        throw Exception('La API devolvió datos vacíos.');
+      }
+
+      final seasonData = await _seriesService.fetchSeasonEpisodes(widget.seriesId, selectedSeason);
+      debugPrint('✅ Datos obtenidos de episodios: $seasonData');
+
+      if (seasonData.isEmpty || seasonData['episodes'] == null) {
+        throw Exception('No se encontraron episodios.');
+      }
+
+      setState(() {
+        series = Series.fromJson(data);
+        episodes = seasonData['episodes'] ?? [];
+        isLoading = false;
+      });
+    } catch (e, stacktrace) {
+      debugPrint('❌ Error al obtener datos de la serie: $e');
+      debugPrint('🛠 Stacktrace: $stacktrace');
+      setState(() {
+        isLoading = false;
+        series = null;
+      });
     }
-
-    final seasonData = await _seriesService.fetchSeasonEpisodes(widget.seriesId, selectedSeason);
-    debugPrint('✅ Datos obtenidos de episodios: $seasonData');
-
-    if (seasonData.isEmpty || seasonData['episodes'] == null) {
-      throw Exception('No se encontraron episodios.');
-    }
-
-    setState(() {
-      series = Series.fromJson(data);
-      episodes = seasonData['episodes'] ?? [];
-      isLoading = false;
-    });
-  } catch (e, stacktrace) {
-    debugPrint('❌ Error al obtener datos de la serie: $e');
-    debugPrint('🛠 Stacktrace: $stacktrace');
-    setState(() {
-      isLoading = false;
-      series = null;
-    });
   }
-}
 
   Future<void> loadSeasonEpisodes(int seasonNumber) async {
     try {
@@ -150,14 +150,34 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
                   Text('Episodios: ${series!.numberOfEpisodes ?? "?"}'),
                   const SizedBox(height: 10),
                   Text('Puntuación: ${series!.voteAverage.toStringAsFixed(1)}'),
+                  Row(
+                    children: [
+                      Text(
+                        'Puntuación: ',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      ...List.generate(5, (index) {
+                        return Icon(
+                          index < (series!.voteAverage / 2).round()
+                              ? Icons.star
+                              : Icons.star_border,
+                          color: Colors.amber,
+                          size: 20,
+                        );
+                      }),
+                      SizedBox(width: 8),
+                      Text(series!.voteAverage.toStringAsFixed(1)),
+                    ],
+                  ),
                   const SizedBox(height: 10),
-                  if (series!.genres != null && series!.genres!.isNotEmpty)
-                    Wrap(
-                      spacing: 8,
-                      children: series!.genres!
-                          .map<Widget>((g) => Chip(label: Text(g)))
-                          .toList(),
-                    ),
+                  if (series != null && series!.genres.isNotEmpty)
+
+  Wrap(
+    spacing: 8,
+  children: series!.genres.map<Widget>((g) => Chip(label: Text(g))).toList(),
+
+  ),
+
                   const SizedBox(height: 20),
                   _buildSeasonSelector(),
                   const SizedBox(height: 10),
