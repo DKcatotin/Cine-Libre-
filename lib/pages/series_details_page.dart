@@ -1,6 +1,8 @@
+// Actualización para lib/pages/series_details_page.dart
 import 'package:flutter/material.dart';
 import '../models/series.dart';
 import '../services/series_service.dart';
+import '../services/favorites_service.dart';
 import 'video_player_page.dart';
 
 class SeriesDetailPage extends StatefulWidget {
@@ -14,9 +16,12 @@ class SeriesDetailPage extends StatefulWidget {
 
 class _SeriesDetailPageState extends State<SeriesDetailPage> {
   final SeriesService _seriesService = SeriesService();
+  final FavoritesService _favoritesService = FavoritesService();
   Series? series;
   List<dynamic> episodes = [];
   bool isLoading = true;
+  bool _isFavorite = false;
+  bool _isCheckingFavorite = true;
   int selectedSeason = 1;
 
   @override
@@ -61,56 +66,70 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
         episodes = seasonData['episodes'] ?? [];
         isLoading = false;
       });
+      
+      // Verificar estado de favorito
+      _checkFavoriteStatus();
     } catch (e, stacktrace) {
       debugPrint('❌ Error al obtener datos de la serie: $e');
       debugPrint('🛠 Stacktrace: $stacktrace');
       setState(() {
         isLoading = false;
         series = null;
+        _isCheckingFavorite = false;
       });
     }
   }
 
-  Future<void> loadSeasonEpisodes(int seasonNumber) async {
+  Future<void> _checkFavoriteStatus() async {
     try {
-      final seasonData = await _seriesService.fetchSeasonEpisodes(widget.seriesId, seasonNumber);
-      debugPrint('✅ Episodios cargados para temporada $seasonNumber');
-
-      if (seasonData.isEmpty) {
-        throw Exception('No hay datos de episodios disponibles.');
+      final isFavorite = await _favoritesService.isFavorite(widget.seriesId, 'series');
+      if (mounted) {
+        setState(() {
+          _isFavorite = isFavorite;
+          _isCheckingFavorite = false;
+        });
       }
-
-      setState(() {
-        episodes = seasonData['episodes'] ?? [];
-      });
     } catch (e) {
-      debugPrint('❌ Error al obtener episodios de la temporada $seasonNumber: $e');
+      debugPrint('Error al verificar estado de favorito: $e');
+      if (mounted) {
+        setState(() {
+          _isCheckingFavorite = false;
+        });
+      }
     }
   }
 
-  Widget _buildSeasonSelector() {
-    final totalSeasons = series?.numberOfSeasons ?? 1;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-      child: DropdownButton<int>(
-        value: selectedSeason,
-        items: List.generate(totalSeasons, (index) {
-          return DropdownMenuItem(
-            value: index + 1,
-            child: Text("Temporada ${index + 1}"),
-          );
-        }),
-        onChanged: (newSeason) {
-          if (newSeason != null) {
-            setState(() {
-              selectedSeason = newSeason;
-            });
-            loadSeasonEpisodes(selectedSeason);
-          }
-        },
-      ),
-    );
+  Future<void> _toggleFavorite() async {
+    if (series == null) return;
+    
+    try {
+      final newStatus = await _favoritesService.toggleFavorite(series, 'series');
+      if (mounted) {
+        setState(() {
+          _isFavorite = newStatus;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isFavorite 
+                ? '${series!.name} añadido a favoritos'
+                : '${series!.name} eliminado de favoritos',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
+
+  // El resto del código permanece igual
 
   @override
   Widget build(BuildContext context) {
@@ -127,8 +146,32 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(series!.name)),
+      appBar: AppBar(
+        title: Text(series!.name),
+        actions: [
+          _isCheckingFavorite
+            ? const Padding(
+                padding: EdgeInsets.all(10.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+              )
+            : IconButton(
+                icon: Icon(
+                  _isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: _isFavorite ? Colors.red : null,
+                ),
+                onPressed: _toggleFavorite,
+              )
+        ],
+      ),
       body: SingleChildScrollView(
+        // El resto del código de build permanece igual
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -171,13 +214,10 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
                   ),
                   const SizedBox(height: 10),
                   if (series != null && series!.genres.isNotEmpty)
-
-  Wrap(
-    spacing: 8,
-  children: series!.genres.map<Widget>((g) => Chip(label: Text(g))).toList(),
-
-  ),
-
+                    Wrap(
+                      spacing: 8,
+                      children: series!.genres.map<Widget>((g) => Chip(label: Text(g))).toList(),
+                    ),
                   const SizedBox(height: 20),
                   _buildSeasonSelector(),
                   const SizedBox(height: 10),
@@ -226,5 +266,46 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildSeasonSelector() {
+    final totalSeasons = series?.numberOfSeasons ?? 1;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+      child: DropdownButton<int>(
+        value: selectedSeason,
+        items: List.generate(totalSeasons, (index) {
+          return DropdownMenuItem(
+            value: index + 1,
+            child: Text("Temporada ${index + 1}"),
+          );
+        }),
+        onChanged: (newSeason) {
+          if (newSeason != null) {
+            setState(() {
+              selectedSeason = newSeason;
+            });
+            loadSeasonEpisodes(selectedSeason);
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> loadSeasonEpisodes(int seasonNumber) async {
+    try {
+      final seasonData = await _seriesService.fetchSeasonEpisodes(widget.seriesId, seasonNumber);
+      debugPrint('✅ Episodios cargados para temporada $seasonNumber');
+
+      if (seasonData.isEmpty) {
+        throw Exception('No hay datos de episodios disponibles.');
+      }
+
+      setState(() {
+        episodes = seasonData['episodes'] ?? [];
+      });
+    } catch (e) {
+      debugPrint('❌ Error al obtener episodios de la temporada $seasonNumber: $e');
+    }
   }
 }

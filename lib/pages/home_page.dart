@@ -1,3 +1,4 @@
+import 'favorites_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/tmdb_service.dart';
@@ -12,6 +13,7 @@ import 'profile_page.dart';
 import '../data/mock_movies.dart';
 import '../data/mock_series.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -247,7 +249,25 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
-                      
+                      const Divider(),
+                      ListTile(
+  leading: const Icon(Icons.favorite, color: Colors.red),
+  title: const Text(
+    'Mis Favoritos',
+    style: TextStyle(fontWeight: FontWeight.bold),
+  ),
+  onTap: () {
+    Navigator.pop(context); // Cierra el drawer
+    
+    // Navegar a la página de favoritos usando materialPageRoute
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const FavoritesPage(),
+      ),
+    );
+  },
+),
                       // Enlace a la página de perfil
                       ListTile(
                         leading: const Icon(Icons.account_circle, color: Colors.blueAccent),
@@ -266,6 +286,7 @@ class _HomePageState extends State<HomePage> {
                           );
                         },
                       ),
+                      
                     ],
                   ),
                 ),

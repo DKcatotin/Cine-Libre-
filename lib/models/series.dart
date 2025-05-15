@@ -63,17 +63,34 @@ class Series {
   );
 }
 
-  String get fullPosterUrl {
-    if (posterPath.isNotEmpty && posterPath != "example.jpg") {
-      return 'https://image.tmdb.org/t/p/w500$posterPath';
-    }
+  
+String get fullPosterUrl {
+  if (posterPath.isEmpty) {
     return "https://via.placeholder.com/500?text=No+Imagen";
   }
+  
+  // Si la URL ya empieza con http o https, es una URL completa
+  if (posterPath.startsWith('http://') || posterPath.startsWith('https://')) {
+    return posterPath; // Devolver la URL tal cual
+  }
+  
+  // Solo añadir el prefijo de TMDB si no es una URL completa
+  return 'https://image.tmdb.org/t/p/w500$posterPath';
+}
 
-  String get fullBackdropUrl {
-    if (backdropPath != null && backdropPath!.isNotEmpty && backdropPath != "example.jpg") {
-      return 'https://image.tmdb.org/t/p/w780$backdropPath';
-    }
+// También corregir el método fullBackdropUrl de manera similar:
+
+String get fullBackdropUrl {
+  if (backdropPath == null || backdropPath!.isEmpty) {
     return fullPosterUrl;
   }
+  
+  // Si la URL ya empieza con http o https, es una URL completa
+  if (backdropPath!.startsWith('http://') || backdropPath!.startsWith('https://')) {
+    return backdropPath!; // Devolver la URL tal cual
+  }
+  
+  // Solo añadir el prefijo de TMDB si no es una URL completa
+  return 'https://image.tmdb.org/t/p/w780$backdropPath';
+}
 }

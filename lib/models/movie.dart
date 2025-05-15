@@ -21,11 +21,8 @@ class Movie {
     this.youtubeId = '',
   });
 
-  /// ✅ Se asegura que `fullPosterUrl` sea siempre una imagen válida
-  String get fullPosterUrl => imageUrl.isNotEmpty
-      ? imageUrl
-      : "https://via.placeholder.com/500";
-
+  
+ 
   /// Constructor para convertir los datos desde la API de TMDb
   factory Movie.fromJsonTMDb(Map<String, dynamic> json) {
     // Obtener tráiler de YouTube
@@ -51,4 +48,20 @@ class Movie {
       youtubeId: trailer != null ? trailer['key'] : '', // ✅ Ahora `youtubeId` se obtiene de TMDB
     );
   }
+  // En lib/models/movie.dart:
+
+/// ✅ Se asegura que `fullPosterUrl` sea siempre una imagen válida
+String get fullPosterUrl {
+  if (imageUrl.isEmpty) {
+    return "https://via.placeholder.com/500?text=No+Imagen";
+  }
+  
+  // Si la URL ya empieza con http o https, es una URL completa
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl; // Devolver la URL tal cual
+  }
+  
+  // Solo añadir el prefijo de TMDB si no es una URL completa
+  return 'https://image.tmdb.org/t/p/w500$imageUrl';
+}
 }
