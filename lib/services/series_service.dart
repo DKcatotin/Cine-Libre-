@@ -4,26 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class SeriesService {
-  final String _apiKey = '81580be9c155e2ae0636bc0e7c7e0a97';
-  final String _baseUrl = 'https://api.themoviedb.org/3';
+  static const String _apiKey = '81580be9c155e2ae0636bc0e7c7e0a97';
+  static const String _baseUrl = 'https://api.themoviedb.org/3';
 
-  final Map<String, String> genreTranslation = {
-    "Action & Adventure": "Acción y aventura",
-    "Animation": "Animación",
-    "Comedy": "Comedia",
-    "Crime": "Crimen",
-    "Documentary": "Documental",
-    "Drama": "Drama",
-    "Family": "Familiar",
-    "Kids": "Infantil",
-    "Mystery": "Misterio",
-    "Reality": "Reality Show",
-    "Sci-Fi & Fantasy": "Ciencia ficción y fantasía",
-    "Soap": "Telenovela",
-    "Talk": "Talk Show",
-    "War & Politics": "Guerra y política",
-    "Western": "Oeste"
+  static final Map<int, String> genreTranslation = {
+    10759: "Acción y aventura",
+  16: "Animación",
+  35: "Comedia",
+  80: "Crimen",
+  99: "Documental",
+  18: "Drama",
+  10751: "Familiar",
+  10762: "Infantil",
+  9648: "Misterio",
+  10764: "Reality Show",
+  10765: "Ciencia ficción y fantasía",
+  10766: "Telenovela",
+  10767: "Talk Show",
+  10768: "Guerra y política",
+  37: "Oeste",
   };
+
 
   String resumenCorto(String overview, {int maxLength = 100}) {
     if (overview.isEmpty) return "No hay descripción disponible.";

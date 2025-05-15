@@ -1,3 +1,5 @@
+import 'package:cine_libre/services/series_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/tmdb_service.dart';
 import '../models/movie.dart';
@@ -21,18 +23,17 @@ class _HomePageState extends State<HomePage> {
   bool isLoading = true;
   List<Movie> movies = [];
   List<Series> series = [];
+  final TextEditingController _searchController = TextEditingController();
 
-  final List<String> genres = [
-    'Todos', 'Acción', 'Drama', 'Comedia',
-    'Documental', 'Terror', 'Suspenso',
-    'Ciencia Ficción', 'Romance', 'Animación', 'Aventura'
-  ];
+  List<String> get genres => ['Todos', ...SeriesService.genreTranslation.values];
+
 
   @override
   void initState() {
     super.initState();
     fetchContent();
   }
+
 void _logout() async {
   try {
     // ✅ Cierra sesión en Firebase
@@ -41,7 +42,7 @@ void _logout() async {
     debugPrint('Error al cerrar sesión: $e');
   }
 }
-final TextEditingController _searchController = TextEditingController();
+
 @override
 void dispose() {
   _searchController.dispose();
@@ -69,7 +70,7 @@ void updateSearchQuery(String value) {
 
       setState(() {
         movies = [...mockMovies, ...fetchedMovies];
-        series = [...mockSeries, ...fetchedSeries];
+        series = kDebugMode ? [...mockSeries, ...fetchedSeries] : [...fetchedSeries];
         isLoading = false;
       });
     } catch (e) {
@@ -228,15 +229,17 @@ ListTile(
 Widget buildContentGrid({required bool isSeries}) {
   List<Movie> filteredMovies = movies.where((movie) {
     final matchesSearch = movie.title.toLowerCase().contains(searchQuery.toLowerCase());
-    final itemGenres = movie.genre.split(',').map((g) => g.trim()).toList();
+    final itemGenres = movie.genre.contains(',') 
+    ? movie.genre.split(',').map((g) => g.trim()).toList() 
+    : [movie.genre.trim()];
     final matchesGenre = selectedGenre == 'Todos' || itemGenres.contains(selectedGenre);
     return matchesSearch && matchesGenre;
   }).toList();
 
   List<Series> filteredSeries = series.where((serie) {
     final matchesSearch = serie.name.toLowerCase().contains(searchQuery.toLowerCase());
-    final itemGenres = serie.genres;
-    final matchesGenre = selectedGenre == 'Todos' || itemGenres.contains(selectedGenre);
+final itemGenres = serie.genres.map((g) => g.trim().toLowerCase()).toList();
+final matchesGenre = selectedGenre == 'Todos' || itemGenres.any((genre) => genre == selectedGenre.toLowerCase());
     return matchesSearch && matchesGenre;
   }).toList();
 
@@ -355,7 +358,7 @@ Widget buildContentCard(dynamic item, bool isSeries) {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             child: Image.network(
               item is Movie ? item.fullPosterUrl : (item as Series).fullPosterUrl,
-              height: 180,
+              height: 170,
               width: double.infinity,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 100),

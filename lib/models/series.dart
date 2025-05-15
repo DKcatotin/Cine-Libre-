@@ -1,3 +1,5 @@
+import 'package:cine_libre/services/series_service.dart';
+
 class Series {
   final int id;
   final String name;
@@ -25,10 +27,26 @@ class Series {
 
  factory Series.fromJson(Map<String, dynamic> json, {String youtubeId = ''}) {
   String overviewText = json['overview'] ?? '';
-  
+
   // Si la descripción en español está vacía y hay una en inglés, úsala
   if (overviewText.isEmpty && json.containsKey('original_overview')) {
     overviewText = json['original_overview'];
+  }
+
+  List<String> genreNames = [];
+
+  if (json.containsKey('genres')) {
+    // Detalles completos (genre: [{id, name}])
+    genreNames = (json['genres'] as List?)
+        ?.whereType<Map<String, dynamic>>()
+        .map((g) => SeriesService.genreTranslation[g['name']] ?? g['name'].toString())
+        .toList() ?? [];
+  } else if (json.containsKey('genre_ids')) {
+    // Lista popular (genre_ids: [18, 10765])
+    genreNames = (json['genre_ids'] as List?)
+        ?.whereType<int>()
+        .map((id) => SeriesService.genreTranslation[id] ?? 'Desconocido')
+        .toList() ?? [];
   }
 
   return Series(
@@ -37,16 +55,14 @@ class Series {
     overview: overviewText.isNotEmpty ? overviewText : "Sin descripción",
     posterPath: json['poster_path'] ?? '',
     voteAverage: (json['vote_average'] is num) ? (json['vote_average'] as num).toDouble() : 0.0,
-    genres: (json['genres'] as List?)
-        ?.map((g) => g is Map && g['name'] != null ? g['name'].toString() : g.toString())
-        .toList()
-        .cast<String>() ?? [],
+    genres: genreNames,
     numberOfSeasons: json['number_of_seasons'],
     numberOfEpisodes: json['number_of_episodes'],
     backdropPath: json['backdrop_path'],
     youtubeId: youtubeId,
   );
 }
+
   String get fullPosterUrl {
     if (posterPath.isNotEmpty && posterPath != "example.jpg") {
       return 'https://image.tmdb.org/t/p/w500$posterPath';

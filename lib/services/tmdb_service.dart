@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cine_libre/services/series_service.dart';
 import 'package:http/http.dart' as http;
 import '../models/movie.dart';
 import '../models/series.dart';
@@ -61,8 +62,8 @@ class TMDbService {
           ? 'https://image.tmdb.org/t/p/w500${detailsData['poster_path']}'
           : '',
       genre: (detailsData['genres'] as List?)
-          ?.map((g) => g['name'].toString())
-          .join(', ') ?? 'Desconocido',
+      ?.map((g) => SeriesService.genreTranslation[g['name']] ?? g['name'])
+      .join(', ') ?? 'Desconocido',
       duration: detailsData['runtime'] != null ? '${detailsData['runtime']} min' : 'Desconocida',
       rating: (detailsData['vote_average'] as num?)?.toDouble() ?? 0.0,
       isFeatured: (detailsData['vote_average'] ?? 0) >= 7.5,
