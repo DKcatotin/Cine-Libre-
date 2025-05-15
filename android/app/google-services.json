@@ -12,7 +12,20 @@
           "package_name": "com.example.cine_libre"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "822634328388-bs150vr7f676psor03gc0o4h2rq3f4sb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.cine_libre",
+            "certificate_hash": "67510e9a2467d004dc78223a818dedd3d6ac01ca"
+          }
+        },
+        {
+          "client_id": "822634328388-mqu0sk6a8f796c8tukpnlk6dlir50ve4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAnQSZhtclSyNiZquqqfTxcAclHjqsNxkk"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "822634328388-mqu0sk6a8f796c8tukpnlk6dlir50ve4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "822634328388-6jnv2lf6p4ctg91gb2ea7tijip8bgjuk.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.cineLibre"
+              }
+            }
+          ]
         }
       }
     },
@@ -31,7 +56,12 @@
           "package_name": "com.tuempresa.cinelibre"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "822634328388-mqu0sk6a8f796c8tukpnlk6dlir50ve4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAnQSZhtclSyNiZquqqfTxcAclHjqsNxkk"
@@ -39,7 +69,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "822634328388-mqu0sk6a8f796c8tukpnlk6dlir50ve4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "822634328388-6jnv2lf6p4ctg91gb2ea7tijip8bgjuk.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.cineLibre"
+              }
+            }
+          ]
         }
       }
     }
