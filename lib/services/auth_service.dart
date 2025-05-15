@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+//import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:logger/logger.dart';
 
 class AuthResult {
@@ -35,11 +38,176 @@ class AuthResult {
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+  // Este es tu client_id de OAuth sin el '.apps.googleusercontent.com'
+  clientId: '822634328388-mqu0sk6a8f796c8tukpnlk6dlir50ve4',
+  scopes: ['email', 'profile'],
+);
   final Logger _logger = Logger();
 
   // Obtener usuario actual
   User? get currentUser => _auth.currentUser;
-
+  
+Future<AuthResult> signInWithGoogle() async {
+  try {
+    // 1. Intentar iniciar sesión con Google
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+    
+    // Si el usuario cancela el inicio de sesión
+    if (googleUser == null) {
+      return AuthResult.error('Inicio de sesión con Google cancelado');
+    }
+    
+    try {
+      // 2. Obtener autenticación de Google
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      // 3. Crear credenciales de Firebase
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      
+      // 4. Intentar iniciar sesión en Firebase
+      await _auth.signInWithCredential(credential);
+      
+      // 5. Este paso es clave: verificar si el usuario está autenticado
+      // independientemente de si hubo un error en el paso anterior
+      final user = _auth.currentUser;
+      
+      if (user != null) {
+        _logger.i('Usuario autenticado con Google: ${user.email}');
+        return AuthResult.success(user);
+      } else {
+        return AuthResult.error('No se pudo completar el inicio de sesión con Google');
+      }
+    } catch (firebaseError) {
+      _logger.e('Error durante autenticación con Firebase:', error: firebaseError);
+      
+      // *** IMPORTANTE: Este paso comprueba si, a pesar del error,
+      // el usuario logró autenticarse en Firebase
+      final user = _auth.currentUser;
+      if (user != null) {
+        _logger.i('Usuario autenticado a pesar del error: ${user.email}');
+        return AuthResult.success(user);
+      }
+      
+      return AuthResult.error('Error durante el proceso de autenticación');
+    }
+  } catch (e) {
+    _logger.e('Error en el inicio de sesión con Google:', error: e);
+    
+    // A pesar del error, verificamos si hay un usuario autenticado
+    final user = _auth.currentUser;
+    if (user != null) {
+      _logger.i('Usuario autenticado a pesar de errores: ${user.email}');
+      return AuthResult.success(user);
+    }
+    
+    return AuthResult.error('No se pudo completar el inicio de sesión con Google');
+  }
+}
+Future<AuthResult> switchGoogleAccount() async {
+  try {
+    // 1. Cerrar sesión en Firebase
+    await _auth.signOut();
+    
+    // 2. Cerrar sesión en Google
+    await _googleSignIn.signOut();
+    
+    // 3. Forzar el selector de cuentas de Google
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+    
+    if (googleUser == null) {
+      return AuthResult.error('Selección de cuenta cancelada');
+    }
+    
+    // 4. Continuar con el proceso normal de autenticación
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+    
+    await _auth.signInWithCredential(credential);
+    
+    final user = _auth.currentUser;
+    if (user != null) {
+      _logger.i('Cambio de cuenta exitoso: ${user.email}');
+      return AuthResult.success(user);
+    } else {
+      return AuthResult.error('No se pudo iniciar sesión con la nueva cuenta');
+    }
+  } catch (e) {
+    _logger.e('Error al cambiar de cuenta:', error: e);
+    
+    // Verificar si a pesar del error, el usuario está autenticado
+    final user = _auth.currentUser;
+    if (user != null) {
+      return AuthResult.success(user);
+    }
+    
+    return AuthResult.error('Error al cambiar de cuenta');
+  }
+}
+// En auth_service.dart
+Future<AuthResult> changePassword(String currentPassword, String newPassword) async {
+  try {
+    // Verificar que haya un usuario autenticado
+    final user = _auth.currentUser;
+    if (user == null) {
+      return AuthResult.error('No hay ningún usuario autenticado');
+    }
+    
+    // Verificar si el usuario inició sesión con Google
+    if (user.providerData.any((provider) => provider.providerId == 'google.com')) {
+      return AuthResult.error('No se puede cambiar la contraseña para cuentas de Google. Por favor, gestiona tu cuenta desde la configuración de Google.');
+    }
+    
+    // Verificar que el usuario tenga un email (necesario para reautenticar)
+    if (user.email == null) {
+      return AuthResult.error('No se puede cambiar la contraseña sin un correo electrónico asociado');
+    }
+    
+    try {
+      // Reautenticar al usuario para verificar su contraseña actual
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      
+      await user.reauthenticateWithCredential(credential);
+      
+      // Cambiar la contraseña
+      await user.updatePassword(newPassword);
+      
+      _logger.i('Contraseña actualizada correctamente para el usuario ${user.email}');
+      return AuthResult(
+        success: true,
+        user: user,
+        errorMessage: 'Contraseña actualizada correctamente',
+      );
+    } catch (e) {
+      if (e is FirebaseAuthException) {
+        switch (e.code) {
+          case 'wrong-password':
+            return AuthResult.error('La contraseña actual es incorrecta', code: e.code);
+          case 'weak-password':
+            return AuthResult.error('La nueva contraseña es demasiado débil', code: e.code);
+          case 'requires-recent-login':
+            return AuthResult.error('Por razones de seguridad, inicia sesión nuevamente antes de cambiar tu contraseña', code: e.code);
+          default:
+            return AuthResult.error(e.message ?? 'Error al cambiar la contraseña', code: e.code);
+        }
+      }
+      
+      return AuthResult.error('Error al cambiar la contraseña: ${e.toString()}');
+    }
+  } catch (e) {
+    _logger.e('Error en changePassword:', error: e);
+    return AuthResult.error('Error inesperado al cambiar la contraseña');
+  }
+}
   // MÉTODO SIMPLIFICADO DE REGISTRO (para evitar errores de tipo)
   Future<AuthResult> register(String email, String password) async {
     if (email.isEmpty || password.isEmpty) {

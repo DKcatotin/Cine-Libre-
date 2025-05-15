@@ -22,7 +22,7 @@ dependencies:
   firebase_core: ^2.13.1
   firebase_auth: ^4.16.0
   cloud_firestore: ^4.8.0
-  
+  google_sign_in: ^6.1.5
   logger: ^2.0.2
 
 dev_dependencies:

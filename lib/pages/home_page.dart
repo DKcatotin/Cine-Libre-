@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/tmdb_service.dart';
-import '../services/series_service.dart'; // Añadido para usar genreTranslation
+import '../services/series_service.dart';
+import '../services/auth_service.dart';
 import '../models/movie.dart';
 import '../models/series.dart';
 import '../widgets/app_logo.dart';
 import 'series_details_page.dart';
 import 'movie_details_page.dart';
+import 'profile_page.dart';
 import '../data/mock_movies.dart';
 import '../data/mock_series.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,6 +27,7 @@ class _HomePageState extends State<HomePage> {
   List<Movie> movies = [];
   List<Series> series = [];
   final TextEditingController _searchController = TextEditingController();
+  final _authService = AuthService();
 
   // Lista de géneros usando SeriesService.genreTranslation
   List<String> get genres => ['Todos', ...SeriesService.genreTranslation.values];
@@ -51,20 +54,6 @@ class _HomePageState extends State<HomePage> {
     } else {
       // Si el usuario está autenticado, carga el contenido
       fetchContent();
-    }
-  }
-
-  Future<void> _logout(BuildContext context) async {
-    try {
-      await FirebaseAuth.instance.signOut(); // Cierra sesión en Firebase
-      if (!mounted) return; // Verifica si el widget sigue montado
-      Navigator.pushReplacementNamed(context, '/login'); // Redirige a login
-    } catch (e) {
-      debugPrint('Error al cerrar sesión: $e');
-      if (!mounted) return; // Otra verificación por seguridad
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al cerrar sesión'))
-      );
     }
   }
 
@@ -110,6 +99,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser; // Obtener usuario actual
+    
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -137,16 +128,26 @@ class _HomePageState extends State<HomePage> {
           child: SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 16),
-                
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  width: double.infinity,
-                  color: Colors.redAccent,
-                  child: const Text(
-                    '🎬 Filtrar contenido',
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+                // Nuevo encabezado con información del usuario
+                UserAccountsDrawerHeader(
+                  accountName: Text(
+                    user?.displayName ?? "Usuario",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  accountEmail: Text(
+                    user?.email ?? "",
+                  ),
+                  currentAccountPicture: CircleAvatar(
+                    backgroundColor: Colors.white,
+                    backgroundImage: user?.photoURL != null
+                        ? NetworkImage(user!.photoURL!)
+                        : null,
+                    child: user?.photoURL == null
+                        ? const Icon(Icons.person, size: 40, color: Colors.redAccent)
+                        : null,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Colors.redAccent,
                   ),
                 ),
 
@@ -154,7 +155,19 @@ class _HomePageState extends State<HomePage> {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
+                      // Sección de contenido
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Text(
+                          "CONTENIDO",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
                       ListTile(
                         leading: const Icon(Icons.home, color: Colors.green),
                         title: const Text(
@@ -171,6 +184,7 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
 
+                      // Buscador
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: TextField(
@@ -199,6 +213,8 @@ class _HomePageState extends State<HomePage> {
                           },
                         ),
                       ),
+                      
+                      // Filtro por género
                       Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: DropdownButtonFormField<String>(
@@ -217,16 +233,37 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
 
-                      const SizedBox(height: 190),
-
+                      const Divider(),
+                      
+                      // Sección de cuenta
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Text(
+                          "MI CUENTA",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                      
+                      // Enlace a la página de perfil
                       ListTile(
-                        leading: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+                        leading: const Icon(Icons.account_circle, color: Colors.blueAccent),
                         title: const Text(
-                          'Cerrar sesión',
+                          'Mi Perfil',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
+                        subtitle: const Text('Gestiona tu cuenta y cierra sesión'),
                         onTap: () {
-                          _logout(context);
+                          Navigator.pop(context); // Cerrar el drawer
+                          
+                          // Navegar a la página de perfil
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ProfilePage()),
+                          );
                         },
                       ),
                     ],
@@ -457,6 +494,10 @@ class _HomePageState extends State<HomePage> {
                             ListTile(
                               leading: Icon(Icons.play_arrow),
                               title: Text('Haz clic en una película o episodio para reproducir'),
+                            ),
+                            ListTile(
+                              leading: Icon(Icons.account_circle),
+                              title: Text('Accede a tu perfil para gestionar tu cuenta'),
                             ),
                           ],
                         ),

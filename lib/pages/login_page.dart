@@ -1,6 +1,7 @@
 import 'package:cine_libre/pages/register_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home_page.dart';
 import '../widgets/app_logo.dart';
 import '../services/auth_service.dart';
@@ -23,6 +24,7 @@ class _LoginPageState extends State<LoginPage> {
   
   // Renombramos _isLoading a _isLoggingIn para consistencia
   bool _isLoggingIn = false;
+  bool _isGoogleLoggingIn = false; // Estado para el inicio de sesión con Google
 
   @override
   void initState() {
@@ -127,6 +129,55 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // Nuevo método para manejar el inicio de sesión con Google
+  Future<void> _handleGoogleLogin() async {
+    setState(() {
+      _isGoogleLoggingIn = true;
+    });
+    
+    try {
+      final result = await _authService.signInWithGoogle();
+      
+      if (!mounted) return;
+      
+      if (result.success) {
+        // Éxito - navegar a la página principal
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      } else {
+        // Mostrar mensaje de error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.errorMessage ?? 'Error al iniciar sesión con Google')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
+      // A pesar del error, verificamos si el usuario está autenticado
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+        return;
+      }
+      
+      // Mostrar el error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al iniciar sesión con Google: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoggingIn = false;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -211,6 +262,56 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         child: const Text("Iniciar sesión"),
                       ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Separador con texto "o"
+                  const Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.white38)),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text("O", style: TextStyle(color: Colors.white70)),
+                      ),
+                      Expanded(child: Divider(color: Colors.white38)),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Nuevo botón de inicio de sesión con Google (con ícono en lugar de imagen)
+                  _isGoogleLoggingIn
+                    ? const CircularProgressIndicator(color: Colors.blue)
+                    : ElevatedButton.icon(
+                        icon: Container(
+                          height: 24,
+                          width: 24,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              "G",
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        label: const Text("Iniciar sesión con Google"),
+                        onPressed: _handleGoogleLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                          minimumSize: const Size.fromHeight(50),
+                        ),
+                      ),
+                  
+                  const SizedBox(height: 16),
+                  
                   TextButton(
                     onPressed: () {
                       Navigator.pushReplacement(
@@ -242,7 +343,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Método para mostrar diálogo de recuperación de contraseña
+  // Método para mostrar diálogo de recuperación de contraseña por correo
   void _showResetPasswordDialog() {
     final resetEmailController = TextEditingController();
     bool isLoading = false;
@@ -258,7 +359,7 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.',
+                    'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña. Deberás hacer clic en el enlace para completar el proceso.',
                     style: TextStyle(fontSize: 14),
                   ),
                   const SizedBox(height: 16),
@@ -300,27 +401,57 @@ class _LoginPageState extends State<LoginPage> {
                             isLoading = true;
                           });
                           
-                          final result = await _authService.resetPassword(email);
-                          
-                          if (!mounted) return;
-                          
-                          setState(() {
-                            isLoading = false;
-                          });
-                          
-                          Navigator.pop(context);
-                          
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                result.success
-                                    ? 'Se ha enviado un correo para restablecer tu contraseña'
-                                    : result.errorMessage ?? 'Error al enviar correo de recuperación'
+                          try {
+                            // Usar directamente el método de Firebase para enviar correo de restablecimiento
+                            await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                            
+                            if (!mounted) return;
+                            
+                            setState(() {
+                              isLoading = false;
+                            });
+                            
+                            Navigator.pop(context);
+                            
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Se ha enviado un enlace de restablecimiento a $email'),
+                                backgroundColor: Colors.green,
                               ),
-                            ),
-                          );
+                            );
+                          } catch (e) {
+                            if (!mounted) return;
+                            
+                            setState(() {
+                              isLoading = false;
+                            });
+                            
+                            String errorMessage = 'Error al enviar el correo de recuperación';
+                            
+                            if (e is FirebaseAuthException) {
+                              switch (e.code) {
+                                case 'user-not-found':
+                                  errorMessage = 'No se encontró ninguna cuenta con ese correo';
+                                  break;
+                                case 'invalid-email':
+                                  errorMessage = 'El formato del correo no es válido';
+                                  break;
+                                default:
+                                  errorMessage = e.message ?? errorMessage;
+                              }
+                            }
+                            
+                            Navigator.pop(context);
+                            
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(errorMessage),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
                         },
-                  child: const Text('Enviar'),
+                  child: const Text('Enviar enlace'),
                 ),
               ],
             );
